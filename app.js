@@ -1,7 +1,7 @@
 import { calculateBalance, filterByPeriod } from './caixa.js';
 import { groupByProfessional } from './comissoes.js';
 
-const APP_VERSION = 'v1.1.0';
+const APP_VERSION = 'v1.2.0';
 const DB_NAME = 'gestaoBelezaDB';
 const DB_VERSION = 1;
 const STORES = ['settings', 'professionals', 'services', 'transactions', 'metadata'];
@@ -41,6 +41,15 @@ function write(storeName, value) {
     const tx = db.transaction(storeName, 'readwrite');
     tx.objectStore(storeName).put(value);
     tx.oncomplete = () => resolve(value);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function deleteRecord(storeName, id) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readwrite');
+    tx.objectStore(storeName).delete(id);
+    tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
 }
@@ -95,9 +104,9 @@ async function refreshConfig() {
 
   $('#business-name').textContent = settings.find((item) => item.id === 'business')?.name || 'Meu negócio';
   
-  $('#service-select').innerHTML = services.filter((item) => item.active !== false).map((item) => `<option value="${item.id}" data-price="${item.price}">${item.name} — ${money(item.price)}</option>`).join('');
+  $('#service-select').innerHTML = services.map((item) => `<option value="${item.id}" data-price="${item.price}">${item.name} — ${money(item.price)}</option>`).join('');
   
-  $('#professional-select').innerHTML = professionals.filter((item) => item.active !== false).map((item) => `<option value="${item.id}">${item.name} (${item.commissionRate || 0}%)</option>`).join('');
+  $('#professional-select').innerHTML = professionals.map((item) => `<option value="${item.id}">${item.name}</option>`).join('');
   
   const firstService = services[0];
   if (firstService) $('#service-amount').value = parseCurrencyInput(firstService.price).toFixed(2);
@@ -315,12 +324,22 @@ async function openCadastros() {
 
       <div class="cadastro-list">
         <h3>Serviços Cadastrados</h3>
-        <div id="cadastro-services">${services.map((item) => `<div class="cadastro-row"><span><strong>${item.name}</strong></span><small>${money(item.price)}</small></div>`).join('') || '<p class="empty-state">Nenhum serviço cadastrado.</p>'}</div>
+        <div id="cadastro-services">${services.map((item) => `
+          <div class="cadastro-row" style="display:flex; justify-content:space-between; align-items:center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+            <div><strong>${item.name}</strong> — <small>${money(item.price)}</small></div>
+            <button class="icon-button delete-btn" data-delete-service="${item.id}" title="Excluir" style="color:#ff5555; background:transparent; border:none; cursor:pointer; font-size:1.1rem; padding: 4px 8px;">🗑</button>
+          </div>`).join('') || '<p class="empty-state">Nenhum serviço cadastrado.</p>'}
+        </div>
       </div>
 
       <div class="cadastro-list">
         <h3>Profissionais Cadastrados</h3>
-        <div id="cadastro-professionals">${professionals.map((item) => `<div class="cadastro-row"><span><strong>${item.name}</strong></span><small>Comissão: ${item.commissionRate || 0}%</small></div>`).join('') || '<p class="empty-state">Nenhum profissional cadastrado.</p>'}</div>
+        <div id="cadastro-professionals">${professionals.map((item) => `
+          <div class="cadastro-row" style="display:flex; justify-content:space-between; align-items:center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+            <div><strong>${item.name}</strong> — <small>Comissão: ${item.commissionRate || 0}%</small></div>
+            <button class="icon-button delete-btn" data-delete-professional="${item.id}" title="Excluir" style="color:#ff5555; background:transparent; border:none; cursor:pointer; font-size:1.1rem; padding: 4px 8px;">🗑</button>
+          </div>`).join('') || '<p class="empty-state">Nenhum profissional cadastrado.</p>'}
+        </div>
       </div>
     </div>`;
 
@@ -344,6 +363,29 @@ async function openCadastros() {
     if (!name || commissionRate < 0 || commissionRate > 100) return showToast('Confira o nome e a comissão do profissional.');
     await write('professionals', { id: crypto.randomUUID(), name, commissionRate, active: true });
     await refreshConfig(); await openCadastros(); showToast('Profissional cadastrado!');
+  });
+
+  // Eventos de Exclusão
+  modal.querySelectorAll('[data-delete-service]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (confirm('Deseja excluir este serviço?')) {
+        await deleteRecord('services', btn.dataset.deleteService);
+        await refreshConfig();
+        await openCadastros();
+        showToast('Serviço removido.');
+      }
+    });
+  });
+
+  modal.querySelectorAll('[data-delete-professional]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (confirm('Deseja excluir este profissional?')) {
+        await deleteRecord('professionals', btn.dataset.deleteProfessional);
+        await refreshConfig();
+        await openCadastros();
+        showToast('Profissional removido.');
+      }
+    });
   });
 }
 
