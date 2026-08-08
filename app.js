@@ -75,6 +75,17 @@ async function seedData() {
   }
 }
 
+async function renameBusiness() {
+  const settings = await readAll('settings');
+  const current = settings.find((item) => item.id === 'business')?.name || 'Meu negócio';
+  const newName = window.prompt('Digite o nome do seu estabelecimento:', current);
+  if (newName && newName.trim() !== '') {
+    await write('settings', { id: 'business', name: newName.trim(), updatedAt: todayISO() });
+    await refreshConfig();
+    showToast('Nome atualizado!');
+  }
+}
+
 async function refreshConfig() {
   const [services, professionals, settings] = await Promise.all([readAll('services'), readAll('professionals'), readAll('settings')]);
   $('#business-name').textContent = settings.find((item) => item.id === 'business')?.name || 'Meu negócio';
@@ -127,8 +138,8 @@ async function refreshDashboard() {
   $('#today-date').textContent = now.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
   $('#month-label').textContent = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   
-  renderCommissions(month);
-  renderTransactions(transactions);
+  await renderCommissions(month);
+  await renderTransactions(transactions);
 }
 
 async function renderCommissions(monthTransactions) {
@@ -136,6 +147,8 @@ async function renderCommissions(monthTransactions) {
   const professionalMap = Object.fromEntries(professionals.map((item) => [item.id, item.name]));
   const container = $('#commission-summary');
   
+  if (!container) return;
+
   const grouped = groupByProfessional(monthTransactions);
   const keys = Object.keys(grouped);
   
@@ -290,12 +303,13 @@ function bindEvents() {
   $$('[data-action="open-launch"]').forEach((button) => button.addEventListener('click', () => showView('launch')));
   $$('[data-action="open-expense"]').forEach((button) => button.addEventListener('click', saveExpense));
   $$('[data-action="open-cadastros"]').forEach((button) => button.addEventListener('click', openCadastros));
+  $$('[data-action="rename-business"]').forEach((button) => button.addEventListener('click', renameBusiness));
   $$('[data-action="export-backup"]').forEach((button) => button.addEventListener('click', exportBackup));
   $$('[data-action="clear-data"]').forEach((button) => button.addEventListener('click', clearData));
   $('#restore-file').addEventListener('change', (event) => { if (event.target.files[0]) restoreBackup(event.target.files[0]); event.target.value = ''; });
   $('#service-form').addEventListener('submit', saveService);
   $('#service-select').addEventListener('change', () => { const option = $('#service-select').selectedOptions[0]; $('#service-amount').value = parseCurrencyInput(option?.dataset.price).toFixed(2); });
-  $('#quick-settings').addEventListener('click', () => showView('more'));
+  $('#quick-settings').addEventListener('click', renameBusiness);
 }
 
 async function init() {
