@@ -182,6 +182,53 @@ async function clearData() {
   await seedData(); await refreshConfig(); await refreshDashboard(); showToast('Dados limpos.');
 }
 
+async function openCadastros() {
+  const [services, professionals] = await Promise.all([readAll('services'), readAll('professionals')]);
+  document.getElementById('cadastro-modal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'cadastro-modal';
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="cadastro-title">
+      <div class="modal-header"><div><p class="eyebrow">CONFIGURAÇÃO</p><h2 id="cadastro-title">Cadastros</h2></div><button class="icon-button" data-close-cadastros aria-label="Fechar">×</button></div>
+      <div class="cadastro-columns">
+        <form id="new-service-form" class="form-card compact-form">
+          <h3>Novo serviço</h3>
+          <label>Nome<input id="new-service-name" required placeholder="Ex.: Corte masculino"></label>
+          <label>Preço<input id="new-service-price" type="number" min="0" step="0.01" inputmode="decimal" required placeholder="35,00"></label>
+          <label>Comissão (%)<input id="new-service-commission" type="number" min="0" max="100" step="1" value="40" required></label>
+          <button class="primary-action full" type="submit">Adicionar serviço</button>
+        </form>
+        <form id="new-professional-form" class="form-card compact-form">
+          <h3>Novo profissional</h3>
+          <label>Nome<input id="new-professional-name" required placeholder="Nome do profissional"></label>
+          <button class="primary-action full" type="submit">Adicionar profissional</button>
+        </form>
+      </div>
+      <div class="cadastro-list"><h3>Serviços cadastrados</h3><div id="cadastro-services">${services.map((item) => `<div class="cadastro-row"><span>${item.name}</span><small>${money(item.price)} · ${item.commissionRate || 0}%</small></div>`).join('') || '<p class="empty-state">Nenhum serviço cadastrado.</p>'}</div></div>
+      <div class="cadastro-list"><h3>Profissionais cadastrados</h3><div id="cadastro-professionals">${professionals.map((item) => `<div class="cadastro-row"><span>${item.name}</span><small>Ativo</small></div>`).join('') || '<p class="empty-state">Nenhum profissional cadastrado.</p>'}</div></div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('[data-close-cadastros]').addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', (event) => { if (event.target === modal) modal.remove(); });
+  modal.querySelector('#new-service-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const name = $('#new-service-name').value.trim();
+    const price = Number(String($('#new-service-price').value).replace(',', '.'));
+    const commissionRate = Number($('#new-service-commission').value || 0);
+    if (!name || price < 0 || commissionRate < 0 || commissionRate > 100) return showToast('Confira os dados do serviço.');
+    await write('services', { id: crypto.randomUUID(), name, price, commissionRate, active: true });
+    await refreshConfig(); await openCadastros(); showToast('Serviço cadastrado.');
+  });
+  modal.querySelector('#new-professional-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const name = $('#new-professional-name').value.trim();
+    if (!name) return showToast('Informe o nome do profissional.');
+    await write('professionals', { id: crypto.randomUUID(), name, active: true });
+    await refreshConfig(); await openCadastros(); showToast('Profissional cadastrado.');
+  });
+}
+
 async function requestPersistentStorage() {
   if (navigator.storage?.persist) await navigator.storage.persist();
 }
@@ -190,6 +237,7 @@ function bindEvents() {
   $$('[data-nav]').forEach((button) => button.addEventListener('click', () => showView(button.dataset.nav)));
   $$('[data-action="open-launch"]').forEach((button) => button.addEventListener('click', () => showView('launch')));
   $$('[data-action="open-expense"]').forEach((button) => button.addEventListener('click', saveExpense));
+  $$('[data-action="open-cadastros"]').forEach((button) => button.addEventListener('click', openCadastros));
   $$('[data-action="export-backup"]').forEach((button) => button.addEventListener('click', exportBackup));
   $$('[data-action="clear-data"]').forEach((button) => button.addEventListener('click', clearData));
   $('#restore-file').addEventListener('change', (event) => { if (event.target.files[0]) restoreBackup(event.target.files[0]); event.target.value = ''; });
