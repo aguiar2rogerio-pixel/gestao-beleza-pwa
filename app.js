@@ -104,10 +104,10 @@ async function refreshConfig() {
 
   $('#business-name').textContent = settings.find((item) => item.id === 'business')?.name || 'Meu negócio';
   
-  // Exibe apenas o nome do serviço no select (sem o valor "— R$ XX,XX")
+  // Exibe APENAS o nome do serviço no dropdown
   $('#service-select').innerHTML = services.map((item) => `<option value="${item.id}" data-price="${item.price}">${item.name}</option>`).join('');
   
-  // Exibe apenas o nome do profissional no select
+  // Exibe apenas o nome do profissional no dropdown
   $('#professional-select').innerHTML = professionals.map((item) => `<option value="${item.id}">${item.name}</option>`).join('');
   
   const firstService = services[0];
@@ -307,45 +307,67 @@ async function openCadastros() {
         <div><p class="eyebrow">CONFIGURAÇÃO</p><h2 id="cadastro-title">Cadastros</h2></div>
         <button class="icon-button" data-close-cadastros aria-label="Fechar">×</button>
       </div>
-      
-      <div class="cadastro-columns">
+
+      <div class="tab-container">
+        <button type="button" class="tab-button active" data-tab="servicos">Serviços</button>
+        <button type="button" class="tab-button" data-tab="profissionais">Profissionais</button>
+      </div>
+
+      <div id="panel-servicos" class="tab-panel active">
         <form id="new-service-form" class="form-card compact-form">
-          <h3>+ Serviço</h3>
+          <h3>+ Novo Serviço</h3>
           <label>Nome do serviço<input id="new-service-name" required placeholder="Ex.: Corte, Barba, Escova"></label>
           <label>Preço padrão<input id="new-service-price" type="number" min="0" step="0.01" inputmode="decimal" required placeholder="35,00"></label>
           <button class="primary-action full" type="submit">Cadastrar Serviço</button>
         </form>
 
+        <div class="cadastro-list">
+          <h3>Serviços Cadastrados</h3>
+          <div id="cadastro-services">${services.map((item) => `
+            <div class="cadastro-row">
+              <div><strong>${item.name}</strong> — <small>${money(item.price)}</small></div>
+              <button class="icon-button delete-btn" data-delete-service="${item.id}" title="Excluir" style="color:#ff5555; background:transparent; border:none; cursor:pointer; font-size:1.1rem; padding: 4px 8px;">🗑</button>
+            </div>`).join('') || '<p class="empty-state">Nenhum serviço cadastrado.</p>'}
+          </div>
+        </div>
+      </div>
+
+      <div id="panel-profissionais" class="tab-panel">
         <form id="new-professional-form" class="form-card compact-form">
-          <h3>+ Profissional</h3>
+          <h3>+ Novo Profissional</h3>
           <label>Nome do profissional<input id="new-professional-name" required placeholder="Ex.: João Barbeiro"></label>
           <label>Comissão (%)<input id="new-professional-commission" type="number" min="0" max="100" step="1" value="40" required></label>
           <button class="primary-action full" type="submit">Cadastrar Profissional</button>
         </form>
-      </div>
 
-      <div class="cadastro-list">
-        <h3>Serviços Cadastrados</h3>
-        <div id="cadastro-services">${services.map((item) => `
-          <div class="cadastro-row" style="display:flex; justify-content:space-between; align-items:center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
-            <div><strong>${item.name}</strong> — <small>${money(item.price)}</small></div>
-            <button class="icon-button delete-btn" data-delete-service="${item.id}" title="Excluir" style="color:#ff5555; background:transparent; border:none; cursor:pointer; font-size:1.1rem; padding: 4px 8px;">🗑</button>
-          </div>`).join('') || '<p class="empty-state">Nenhum serviço cadastrado.</p>'}
-        </div>
-      </div>
-
-      <div class="cadastro-list">
-        <h3>Profissionais Cadastrados</h3>
-        <div id="cadastro-professionals">${professionals.map((item) => `
-          <div class="cadastro-row" style="display:flex; justify-content:space-between; align-items:center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
-            <div><strong>${item.name}</strong> — <small>Comissão: ${item.commissionRate || 0}%</small></div>
-            <button class="icon-button delete-btn" data-delete-professional="${item.id}" title="Excluir" style="color:#ff5555; background:transparent; border:none; cursor:pointer; font-size:1.1rem; padding: 4px 8px;">🗑</button>
-          </div>`).join('') || '<p class="empty-state">Nenhum profissional cadastrado.</p>'}
+        <div class="cadastro-list">
+          <h3>Profissionais Cadastrados</h3>
+          <div id="cadastro-professionals">${professionals.map((item) => `
+            <div class="cadastro-row">
+              <div><strong>${item.name}</strong> — <small>Comissão: ${item.commissionRate || 0}%</small></div>
+              <button class="icon-button delete-btn" data-delete-professional="${item.id}" title="Excluir" style="color:#ff5555; background:transparent; border:none; cursor:pointer; font-size:1.1rem; padding: 4px 8px;">🗑</button>
+            </div>`).join('') || '<p class="empty-state">Nenhum profissional cadastrado.</p>'}
+          </div>
         </div>
       </div>
     </div>`;
 
   document.body.appendChild(modal);
+
+  // Lógica de alternância de abas
+  const tabButtons = modal.querySelectorAll('.tab-button');
+  const tabPanels = modal.querySelectorAll('.tab-panel');
+
+  tabButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      tabButtons.forEach((b) => b.classList.remove('active'));
+      tabPanels.forEach((p) => p.classList.remove('active'));
+
+      btn.classList.add('active');
+      modal.querySelector(`#panel-${btn.dataset.tab}`).classList.add('active');
+    });
+  });
+
   modal.querySelector('[data-close-cadastros]').addEventListener('click', () => modal.remove());
   modal.addEventListener('click', (event) => { if (event.target === modal) modal.remove(); });
 
@@ -399,7 +421,6 @@ function bindEvents() {
   $$('[data-action="open-launch"]').forEach((button) => button.addEventListener('click', () => showView('launch')));
   $$('[data-action="open-expense"]').forEach((button) => button.addEventListener('click', saveExpense));
   $$('[data-action="open-cadastros"]').forEach((button) => button.addEventListener('click', openCadastros));
-  $$('[data-action="rename-business"]').forEach((button) => button.addEventListener('click', renameBusiness));
   $$('[data-action="force-update"]').forEach((button) => button.addEventListener('click', forceUpdate));
   $$('[data-action="export-backup"]').forEach((button) => button.addEventListener('click', exportBackup));
   $$('[data-action="clear-data"]').forEach((button) => button.addEventListener('click', clearData));
