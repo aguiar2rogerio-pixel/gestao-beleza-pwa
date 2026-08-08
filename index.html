@@ -55,12 +55,23 @@
     </section>
 
     <section class="view" data-view="cash">
-      <div class="section-heading"><div><p class="eyebrow">MOVIMENTAÇÕES</p><h2>Caixa</h2></div><button class="small-button" data-action="open-expense">+ Despesa</button></div>
+      <div class="section-heading">
+        <div><p class="eyebrow">CONTROLE FINANCEIRO</p><h2>Caixa do Mês</h2></div>
+        <button class="small-button" data-action="open-expense">+ Despesa</button>
+      </div>
       
-      <div class="section-heading"><h3>Comissões a pagar (Mês)</h3></div>
-      <div id="commission-summary" class="list-card" style="margin-bottom: 20px;"><p class="empty-state">Nenhum cálculo de comissão disponível.</p></div>
+      <!-- Cards de resumo rápido do Caixa -->
+      <div class="metric-grid" style="margin-bottom: 20px;">
+        <article class="metric-card"><span>Faturamento</span><strong id="cash-month-income" class="positive">R$ 0,00</strong></article>
+        <article class="metric-card"><span>Comissões</span><strong id="cash-month-commissions" style="color: #e2a0ff;">R$ 0,00</strong></article>
+        <article class="metric-card"><span>Despesas</span><strong id="cash-month-expenses" class="negative">R$ 0,00</strong></article>
+        <article class="metric-card"><span>Líquido Loja</span><strong id="cash-month-net">R$ 0,00</strong></article>
+      </div>
 
-      <div class="section-heading"><h3>Últimas movimentações</h3></div>
+      <div class="section-heading"><h3>Comissões por Profissional</h3></div>
+      <div id="commission-summary" class="list-card" style="margin-bottom: 24px;"><p class="empty-state">Nenhum cálculo de comissão disponível.</p></div>
+
+      <div class="section-heading"><h3> Histórico de Movimentações</h3></div>
       <div id="transaction-list" class="list-card"><p class="empty-state">Nenhuma movimentação registrada.</p></div>
     </section>
 
@@ -76,7 +87,7 @@
       <div class="info-box">
         <strong>Dados locais</strong>
         <p>Os dados ficam salvos neste aparelho. Faça backups regularmente.</p>
-        <small id="app-version-label">Versão do app: v1.2.0</small><br>
+        <small id="app-version-label">Versão do app: v1.3.0</small><br>
         <small id="last-backup">Nenhum backup realizado</small>
       </div>
     </section>
