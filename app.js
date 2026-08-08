@@ -1,6 +1,7 @@
 import { calculateBalance, filterByPeriod } from './caixa.js';
 import { groupByProfessional } from './comissoes.js';
 
+const APP_VERSION = 'v1.1.0';
 const DB_NAME = 'gestaoBelezaDB';
 const DB_VERSION = 1;
 const STORES = ['settings', 'professionals', 'services', 'transactions', 'metadata'];
@@ -65,10 +66,10 @@ async function seedData() {
   const services = await readAll('services');
   const professionals = await readAll('professionals');
   if (!services.length) {
-    await write('services', { id: crypto.randomUUID(), name: 'Corte', price: 35, commissionRate: 40, active: true });
+    await write('services', { id: crypto.randomUUID(), name: 'Corte Masculino', price: 35, active: true });
   }
   if (!professionals.length) {
-    await write('professionals', { id: crypto.randomUUID(), name: 'Profissional principal', active: true });
+    await write('professionals', { id: crypto.randomUUID(), name: 'Barbeiro / Cabeleireiro', commissionRate: 40, active: true });
   }
   if (!(await readAll('settings')).length) {
     await write('settings', { id: 'business', name: 'Meu negócio', createdAt: todayISO() });
@@ -88,9 +89,16 @@ async function renameBusiness() {
 
 async function refreshConfig() {
   const [services, professionals, settings] = await Promise.all([readAll('services'), readAll('professionals'), readAll('settings')]);
+  
+  const versionLabel = $('#app-version-label');
+  if (versionLabel) versionLabel.textContent = `Versão do app: ${APP_VERSION}`;
+
   $('#business-name').textContent = settings.find((item) => item.id === 'business')?.name || 'Meu negócio';
+  
   $('#service-select').innerHTML = services.filter((item) => item.active !== false).map((item) => `<option value="${item.id}" data-price="${item.price}">${item.name} — ${money(item.price)}</option>`).join('');
-  $('#professional-select').innerHTML = professionals.filter((item) => item.active !== false).map((item) => `<option value="${item.id}">${item.name}</option>`).join('');
+  
+  $('#professional-select').innerHTML = professionals.filter((item) => item.active !== false).map((item) => `<option value="${item.id}">${item.name} (${item.commissionRate || 0}%)</option>`).join('');
+  
   const firstService = services[0];
   if (firstService) $('#service-amount').value = parseCurrencyInput(firstService.price).toFixed(2);
 }
@@ -187,6 +195,7 @@ async function renderTransactions(transactions) {
 async function saveService(event) {
   event.preventDefault();
   const service = $('#service-select').selectedOptions[0];
+  const professionalId = $('#professional-select').value;
   const amount = parseCurrencyInput($('#service-amount').value);
   
   if (amount <= 0) {
@@ -194,10 +203,23 @@ async function saveService(event) {
     return;
   }
 
-  const services = await readAll('services');
-  const config = services.find((item) => item.id === service?.value);
-  const rate = parseCurrencyInput(config?.commissionRate);
-  const transaction = { id: crypto.randomUUID(), type: 'income', date: todayISO(), serviceId: service?.value, professionalId: $('#professional-select').value, amount, commissionAmount: (amount * rate) / 100, paymentMethod: $('#payment-select').value, notes: $('#service-notes').value.trim(), createdAt: todayISO(), updatedAt: todayISO() };
+  const professionals = await readAll('professionals');
+  const profConfig = professionals.find((item) => item.id === professionalId);
+  const rate = parseCurrencyInput(profConfig?.commissionRate);
+  
+  const transaction = { 
+    id: crypto.randomUUID(), 
+    type: 'income', 
+    date: todayISO(), 
+    serviceId: service?.value, 
+    professionalId, 
+    amount, 
+    commissionAmount: (amount * rate) / 100, 
+    paymentMethod: $('#payment-select').value, 
+    notes: $('#service-notes').value.trim(), 
+    createdAt: todayISO(), 
+    updatedAt: todayISO() 
+  };
   
   await write('transactions', transaction);
   event.target.reset();
@@ -218,10 +240,25 @@ async function saveExpense() {
   showToast('Despesa registrada.');
 }
 
+async function forceUpdate() {
+  showToast('Buscando atualizações...');
+  if ('caches' in window) {
+    const cacheNames = await caches.keys();
+    await Promise.all(cacheNames.map((name) => caches.delete(name)));
+  }
+  if ('serviceWorker' in navigator) {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    for (const registration of registrations) {
+      await registration.unregister();
+    }
+  }
+  window.location.reload(true);
+}
+
 async function exportBackup() {
   const data = {};
   for (const store of STORES) data[store] = await readAll(store);
-  const payload = { format: 'gestao-beleza-backup', backupVersion: 1, createdAt: todayISO(), appVersion: '0.1.0', data };
+  const payload = { format: 'gestao-beleza-backup', backupVersion: 1, createdAt: todayISO(), appVersion: APP_VERSION, data };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a'); link.href = url; link.download = `backup-gestao-beleza-${new Date().toISOString().slice(0, 16).replaceAll(':', '-')}.json`; link.click(); URL.revokeObjectURL(url);
@@ -255,42 +292,58 @@ async function openCadastros() {
   modal.className = 'modal-overlay';
   modal.innerHTML = `
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="cadastro-title">
-      <div class="modal-header"><div><p class="eyebrow">CONFIGURAÇÃO</p><h2 id="cadastro-title">Cadastros</h2></div><button class="icon-button" data-close-cadastros aria-label="Fechar">×</button></div>
+      <div class="modal-header">
+        <div><p class="eyebrow">CONFIGURAÇÃO</p><h2 id="cadastro-title">Cadastros</h2></div>
+        <button class="icon-button" data-close-cadastros aria-label="Fechar">×</button>
+      </div>
+      
       <div class="cadastro-columns">
         <form id="new-service-form" class="form-card compact-form">
-          <h3>Novo serviço</h3>
-          <label>Nome<input id="new-service-name" required placeholder="Ex.: Corte masculino"></label>
-          <label>Preço<input id="new-service-price" type="number" min="0" step="0.01" inputmode="decimal" required placeholder="35,00"></label>
-          <label>Comissão (%)<input id="new-service-commission" type="number" min="0" max="100" step="1" value="40" required></label>
-          <button class="primary-action full" type="submit">Adicionar serviço</button>
+          <h3>+ Serviço</h3>
+          <label>Nome do serviço<input id="new-service-name" required placeholder="Ex.: Corte, Barba, Escova"></label>
+          <label>Preço padrão<input id="new-service-price" type="number" min="0" step="0.01" inputmode="decimal" required placeholder="35,00"></label>
+          <button class="primary-action full" type="submit">Cadastrar Serviço</button>
         </form>
+
         <form id="new-professional-form" class="form-card compact-form">
-          <h3>Novo profissional</h3>
-          <label>Nome<input id="new-professional-name" required placeholder="Nome do profissional"></label>
-          <button class="primary-action full" type="submit">Adicionar profissional</button>
+          <h3>+ Profissional</h3>
+          <label>Nome do profissional<input id="new-professional-name" required placeholder="Ex.: João Barbeiro"></label>
+          <label>Comissão (%)<input id="new-professional-commission" type="number" min="0" max="100" step="1" value="40" required></label>
+          <button class="primary-action full" type="submit">Cadastrar Profissional</button>
         </form>
       </div>
-      <div class="cadastro-list"><h3>Serviços cadastrados</h3><div id="cadastro-services">${services.map((item) => `<div class="cadastro-row"><span>${item.name}</span><small>${money(item.price)} · ${item.commissionRate || 0}%</small></div>`).join('') || '<p class="empty-state">Nenhum serviço cadastrado.</p>'}</div></div>
-      <div class="cadastro-list"><h3>Profissionais cadastrados</h3><div id="cadastro-professionals">${professionals.map((item) => `<div class="cadastro-row"><span>${item.name}</span><small>Ativo</small></div>`).join('') || '<p class="empty-state">Nenhum profissional cadastrado.</p>'}</div></div>
+
+      <div class="cadastro-list">
+        <h3>Serviços Cadastrados</h3>
+        <div id="cadastro-services">${services.map((item) => `<div class="cadastro-row"><span><strong>${item.name}</strong></span><small>${money(item.price)}</small></div>`).join('') || '<p class="empty-state">Nenhum serviço cadastrado.</p>'}</div>
+      </div>
+
+      <div class="cadastro-list">
+        <h3>Profissionais Cadastrados</h3>
+        <div id="cadastro-professionals">${professionals.map((item) => `<div class="cadastro-row"><span><strong>${item.name}</strong></span><small>Comissão: ${item.commissionRate || 0}%</small></div>`).join('') || '<p class="empty-state">Nenhum profissional cadastrado.</p>'}</div>
+      </div>
     </div>`;
+
   document.body.appendChild(modal);
   modal.querySelector('[data-close-cadastros]').addEventListener('click', () => modal.remove());
   modal.addEventListener('click', (event) => { if (event.target === modal) modal.remove(); });
+
   modal.querySelector('#new-service-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     const name = $('#new-service-name').value.trim();
     const price = parseCurrencyInput($('#new-service-price').value);
-    const commissionRate = parseCurrencyInput($('#new-service-commission').value);
-    if (!name || price <= 0 || commissionRate < 0 || commissionRate > 100) return showToast('Confira os dados do serviço.');
-    await write('services', { id: crypto.randomUUID(), name, price, commissionRate, active: true });
-    await refreshConfig(); await openCadastros(); showToast('Serviço cadastrado.');
+    if (!name || price <= 0) return showToast('Confira o nome e o preço do serviço.');
+    await write('services', { id: crypto.randomUUID(), name, price, active: true });
+    await refreshConfig(); await openCadastros(); showToast('Serviço cadastrado!');
   });
+
   modal.querySelector('#new-professional-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     const name = $('#new-professional-name').value.trim();
-    if (!name) return showToast('Informe o nome do profissional.');
-    await write('professionals', { id: crypto.randomUUID(), name, active: true });
-    await refreshConfig(); await openCadastros(); showToast('Profissional cadastrado.');
+    const commissionRate = parseCurrencyInput($('#new-professional-commission').value);
+    if (!name || commissionRate < 0 || commissionRate > 100) return showToast('Confira o nome e a comissão do profissional.');
+    await write('professionals', { id: crypto.randomUUID(), name, commissionRate, active: true });
+    await refreshConfig(); await openCadastros(); showToast('Profissional cadastrado!');
   });
 }
 
@@ -304,6 +357,7 @@ function bindEvents() {
   $$('[data-action="open-expense"]').forEach((button) => button.addEventListener('click', saveExpense));
   $$('[data-action="open-cadastros"]').forEach((button) => button.addEventListener('click', openCadastros));
   $$('[data-action="rename-business"]').forEach((button) => button.addEventListener('click', renameBusiness));
+  $$('[data-action="force-update"]').forEach((button) => button.addEventListener('click', forceUpdate));
   $$('[data-action="export-backup"]').forEach((button) => button.addEventListener('click', exportBackup));
   $$('[data-action="clear-data"]').forEach((button) => button.addEventListener('click', clearData));
   $('#restore-file').addEventListener('change', (event) => { if (event.target.files[0]) restoreBackup(event.target.files[0]); event.target.value = ''; });
