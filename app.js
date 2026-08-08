@@ -1,7 +1,7 @@
 import { calculateBalance, filterByPeriod } from './caixa.js';
 import { groupByProfessional } from './comissoes.js';
 
-const APP_VERSION = 'v1.2.0';
+const APP_VERSION = 'v1.3.0';
 const DB_NAME = 'gestaoBelezaDB';
 const DB_VERSION = 1;
 const STORES = ['settings', 'professionals', 'services', 'transactions', 'metadata'];
@@ -104,10 +104,7 @@ async function refreshConfig() {
 
   $('#business-name').textContent = settings.find((item) => item.id === 'business')?.name || 'Meu negócio';
   
-  // Exibe APENAS o nome do serviço no dropdown
   $('#service-select').innerHTML = services.map((item) => `<option value="${item.id}" data-price="${item.price}">${item.name}</option>`).join('');
-  
-  // Exibe apenas o nome do profissional no dropdown
   $('#professional-select').innerHTML = professionals.map((item) => `<option value="${item.id}">${item.name}</option>`).join('');
   
   const firstService = services[0];
@@ -144,6 +141,7 @@ async function refreshDashboard() {
   const monthExpenses = month.filter((item) => item.type === 'expense').reduce((total, item) => total + parseCurrencyInput(item.amount), 0);
   const monthCommission = month.filter((item) => item.type === 'income').reduce((total, item) => total + parseCurrencyInput(item.commissionAmount), 0);
 
+  // Dashboard da Home
   $('#today-income').textContent = money(todayIncome);
   $('#today-expenses').textContent = money(todayExpenses);
   $('#today-commissions').textContent = money(todayCommission);
@@ -154,6 +152,12 @@ async function refreshDashboard() {
   $('#month-expenses').textContent = money(monthExpenses);
   $('#month-result').textContent = money(monthIncome - monthExpenses - monthCommission);
   
+  // Resumo Financeiro da Tela Caixa
+  $('#cash-month-income').textContent = money(monthIncome);
+  $('#cash-month-commissions').textContent = money(monthCommission);
+  $('#cash-month-expenses').textContent = money(monthExpenses);
+  $('#cash-month-net').textContent = money(monthIncome - monthExpenses - monthCommission);
+
   $('#today-date').textContent = now.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
   $('#month-label').textContent = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   
@@ -195,12 +199,39 @@ async function renderTransactions(transactions) {
     list.innerHTML = '<p class="empty-state">Nenhuma movimentação registrada.</p>'; 
     return; 
   }
-  
-  list.innerHTML = sorted.slice(0, 30).map((item) => {
-    const label = item.type === 'income' ? `${serviceMap[item.serviceId] || 'Atendimento'} · ${professionalMap[item.professionalId] || ''}` : item.description;
+
+  const paymentLabels = { pix: 'Pix', card: 'Cartão', cash: 'Dinheiro', other: 'Outro' };
+
+  list.innerHTML = sorted.slice(0, 40).map((item) => {
+    const isIncome = item.type === 'income';
+    const label = isIncome ? `${serviceMap[item.serviceId] || 'Atendimento'} · ${professionalMap[item.professionalId] || ''}` : item.description;
     const amount = parseCurrencyInput(item.amount);
-    return `<div class="transaction"><div><strong>${label}</strong><small>${localDate(item.date)} · ${item.paymentMethod || 'Despesa'}</small></div><strong class="${item.type === 'income' ? 'positive' : 'negative'}">${item.type === 'income' ? '+' : '-'} ${money(amount)}</strong></div>`;
+    const badgeClass = isIncome ? (item.paymentMethod || 'other') : 'expense';
+    const badgeText = isIncome ? (paymentLabels[item.paymentMethod] || 'Outro') : 'Despesa';
+
+    return `
+      <div class="transaction">
+        <div>
+          <strong>${label}</strong>
+          <small>${localDate(item.date)}</small>
+          <span class="badge ${badgeClass}">${badgeText}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <strong class="${isIncome ? 'positive' : 'negative'}">${isIncome ? '+' : '-'} ${money(amount)}</strong>
+          <button class="delete-tx-btn" data-delete-tx="${item.id}" title="Excluir lançamento">🗑</button>
+        </div>
+      </div>`;
   }).join('');
+
+  list.querySelectorAll('[data-delete-tx]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (confirm('Deseja apagar esta movimentação do caixa?')) {
+        await deleteRecord('transactions', btn.dataset.deleteTx);
+        await refreshDashboard();
+        showToast('Movimentação apagada.');
+      }
+    });
+  });
 }
 
 async function saveService(event) {
@@ -354,7 +385,6 @@ async function openCadastros() {
 
   document.body.appendChild(modal);
 
-  // Lógica de alternância de abas
   const tabButtons = modal.querySelectorAll('.tab-button');
   const tabPanels = modal.querySelectorAll('.tab-panel');
 
