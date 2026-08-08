@@ -104,8 +104,10 @@ async function refreshConfig() {
 
   $('#business-name').textContent = settings.find((item) => item.id === 'business')?.name || 'Meu negócio';
   
-  $('#service-select').innerHTML = services.map((item) => `<option value="${item.id}" data-price="${item.price}">${item.name} — ${money(item.price)}</option>`).join('');
+  // Exibe apenas o nome do serviço no select (sem o valor "— R$ XX,XX")
+  $('#service-select').innerHTML = services.map((item) => `<option value="${item.id}" data-price="${item.price}">${item.name}</option>`).join('');
   
+  // Exibe apenas o nome do profissional no select
   $('#professional-select').innerHTML = professionals.map((item) => `<option value="${item.id}">${item.name}</option>`).join('');
   
   const firstService = services[0];
@@ -365,7 +367,6 @@ async function openCadastros() {
     await refreshConfig(); await openCadastros(); showToast('Profissional cadastrado!');
   });
 
-  // Eventos de Exclusão
   modal.querySelectorAll('[data-delete-service]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       if (confirm('Deseja excluir este serviço?')) {
