@@ -1,3 +1,6 @@
+import { calculateBalance, filterByPeriod } from './caixa.js';
+import { groupByProfessional } from './comissoes.js';
+
 const DB_NAME = 'gestaoBelezaDB';
 const DB_VERSION = 1;
 const STORES = ['settings', 'professionals', 'services', 'transactions', 'metadata'];
@@ -8,6 +11,13 @@ const $$ = (selector) => [...document.querySelectorAll(selector)];
 const money = (value) => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const todayISO = () => new Date().toISOString();
 const localDate = (iso) => new Date(iso).toLocaleDateString('pt-BR');
+
+function parseCurrencyInput(value) {
+  if (typeof value === 'number') return isNaN(value) ? 0 : value;
+  const cleaned = String(value || '0').replace(/[^\d.,]/g, '').replace(',', '.');
+  const parsed = parseFloat(cleaned);
+  return isNaN(parsed) ? 0 : parsed;
+}
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -71,7 +81,7 @@ async function refreshConfig() {
   $('#service-select').innerHTML = services.filter((item) => item.active !== false).map((item) => `<option value="${item.id}" data-price="${item.price}">${item.name} — ${money(item.price)}</option>`).join('');
   $('#professional-select').innerHTML = professionals.filter((item) => item.active !== false).map((item) => `<option value="${item.id}">${item.name}</option>`).join('');
   const firstService = services[0];
-  if (firstService) $('#service-amount').value = Number(firstService.price).toFixed(2);
+  if (firstService) $('#service-amount').value = parseCurrencyInput(firstService.price).toFixed(2);
 }
 
 function showView(viewName) {
@@ -92,25 +102,53 @@ async function refreshDashboard() {
   const now = new Date();
   const isToday = (item) => new Date(item.date).toDateString() === now.toDateString();
   const isMonth = (item) => { const date = new Date(item.date); return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear(); };
-  const sum = (items, type) => items.filter((item) => item.type === type).reduce((total, item) => total + Number(item.amount || 0), 0);
+  
   const today = transactions.filter(isToday);
   const month = transactions.filter(isMonth);
-  const todayIncome = sum(today, 'income');
-  const todayExpenses = sum(today, 'expense');
-  const todayCommission = today.filter((item) => item.type === 'income').reduce((total, item) => total + Number(item.commissionAmount || 0), 0);
-  const monthIncome = sum(month, 'income');
-  const monthExpenses = sum(month, 'expense');
+  
+  const todayIncome = today.filter((item) => item.type === 'income').reduce((total, item) => total + parseCurrencyInput(item.amount), 0);
+  const todayExpenses = today.filter((item) => item.type === 'expense').reduce((total, item) => total + parseCurrencyInput(item.amount), 0);
+  const todayCommission = today.filter((item) => item.type === 'income').reduce((total, item) => total + parseCurrencyInput(item.commissionAmount), 0);
+  
+  const monthIncome = month.filter((item) => item.type === 'income').reduce((total, item) => total + parseCurrencyInput(item.amount), 0);
+  const monthExpenses = month.filter((item) => item.type === 'expense').reduce((total, item) => total + parseCurrencyInput(item.amount), 0);
+  const monthCommission = month.filter((item) => item.type === 'income').reduce((total, item) => total + parseCurrencyInput(item.commissionAmount), 0);
+
   $('#today-income').textContent = money(todayIncome);
   $('#today-expenses').textContent = money(todayExpenses);
   $('#today-commissions').textContent = money(todayCommission);
   $('#today-services').textContent = today.filter((item) => item.type === 'income').length;
   $('#today-result').textContent = money(todayIncome - todayExpenses - todayCommission);
+  
   $('#month-income').textContent = money(monthIncome);
   $('#month-expenses').textContent = money(monthExpenses);
-  $('#month-result').textContent = money(monthIncome - monthExpenses - month.filter((item) => item.type === 'income').reduce((total, item) => total + Number(item.commissionAmount || 0), 0));
+  $('#month-result').textContent = money(monthIncome - monthExpenses - monthCommission);
+  
   $('#today-date').textContent = now.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
   $('#month-label').textContent = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  
+  renderCommissions(month);
   renderTransactions(transactions);
+}
+
+async function renderCommissions(monthTransactions) {
+  const professionals = await readAll('professionals');
+  const professionalMap = Object.fromEntries(professionals.map((item) => [item.id, item.name]));
+  const container = $('#commission-summary');
+  
+  const grouped = groupByProfessional(monthTransactions);
+  const keys = Object.keys(grouped);
+  
+  if (!keys.length) {
+    container.innerHTML = '<p class="empty-state">Nenhum atendimento realizado este mês.</p>';
+    return;
+  }
+  
+  container.innerHTML = keys.map((key) => {
+    const profName = professionalMap[key] || 'Profissional não identificado';
+    const data = grouped[key];
+    return `<div class="transaction"><div><strong>${profName}</strong><small>${data.count} atendimento(s) · Total gerado: ${money(data.amount)}</small></div><strong class="positive">${money(data.commission)}</strong></div>`;
+  }).join('');
 }
 
 async function renderTransactions(transactions) {
@@ -120,20 +158,34 @@ async function renderTransactions(transactions) {
   const professionalMap = Object.fromEntries(professionals.map((item) => [item.id, item.name]));
   const list = $('#transaction-list');
   const sorted = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
-  if (!sorted.length) { list.innerHTML = '<p class="empty-state">Nenhuma movimentação registrada.</p>'; return; }
+  
+  if (!sorted.length) { 
+    list.innerHTML = '<p class="empty-state">Nenhuma movimentação registrada.</p>'; 
+    return; 
+  }
+  
   list.innerHTML = sorted.slice(0, 30).map((item) => {
     const label = item.type === 'income' ? `${serviceMap[item.serviceId] || 'Atendimento'} · ${professionalMap[item.professionalId] || ''}` : item.description;
-    return `<div class="transaction"><div><strong>${label}</strong><small>${localDate(item.date)} · ${item.paymentMethod || 'Despesa'}</small></div><strong class="${item.type === 'income' ? 'positive' : 'negative'}">${item.type === 'income' ? '+' : '-'} ${money(item.amount)}</strong></div>`;
+    const amount = parseCurrencyInput(item.amount);
+    return `<div class="transaction"><div><strong>${label}</strong><small>${localDate(item.date)} · ${item.paymentMethod || 'Despesa'}</small></div><strong class="${item.type === 'income' ? 'positive' : 'negative'}">${item.type === 'income' ? '+' : '-'} ${money(amount)}</strong></div>`;
   }).join('');
 }
 
 async function saveService(event) {
   event.preventDefault();
   const service = $('#service-select').selectedOptions[0];
-  const amount = Number($('#service-amount').value || 0);
+  const amount = parseCurrencyInput($('#service-amount').value);
+  
+  if (amount <= 0) {
+    showToast('Informe um valor válido.');
+    return;
+  }
+
   const services = await readAll('services');
   const config = services.find((item) => item.id === service?.value);
-  const transaction = { id: crypto.randomUUID(), type: 'income', date: todayISO(), serviceId: service?.value, professionalId: $('#professional-select').value, amount, commissionAmount: amount * Number(config?.commissionRate || 0) / 100, paymentMethod: $('#payment-select').value, notes: $('#service-notes').value.trim(), createdAt: todayISO(), updatedAt: todayISO() };
+  const rate = parseCurrencyInput(config?.commissionRate);
+  const transaction = { id: crypto.randomUUID(), type: 'income', date: todayISO(), serviceId: service?.value, professionalId: $('#professional-select').value, amount, commissionAmount: (amount * rate) / 100, paymentMethod: $('#payment-select').value, notes: $('#service-notes').value.trim(), createdAt: todayISO(), updatedAt: todayISO() };
+  
   await write('transactions', transaction);
   event.target.reset();
   await refreshConfig();
@@ -146,8 +198,8 @@ async function saveExpense() {
   const description = window.prompt('Descrição da despesa:');
   if (!description) return;
   const raw = window.prompt('Valor da despesa (ex.: 75,00):');
-  const amount = Number(String(raw || '').replace(',', '.'));
-  if (!amount || amount < 0) { showToast('Informe um valor válido.'); return; }
+  const amount = parseCurrencyInput(raw);
+  if (amount <= 0) { showToast('Informe um valor válido.'); return; }
   await write('transactions', { id: crypto.randomUUID(), type: 'expense', date: todayISO(), description, amount, createdAt: todayISO(), updatedAt: todayISO() });
   await refreshDashboard();
   showToast('Despesa registrada.');
@@ -214,9 +266,9 @@ async function openCadastros() {
   modal.querySelector('#new-service-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     const name = $('#new-service-name').value.trim();
-    const price = Number(String($('#new-service-price').value).replace(',', '.'));
-    const commissionRate = Number($('#new-service-commission').value || 0);
-    if (!name || price < 0 || commissionRate < 0 || commissionRate > 100) return showToast('Confira os dados do serviço.');
+    const price = parseCurrencyInput($('#new-service-price').value);
+    const commissionRate = parseCurrencyInput($('#new-service-commission').value);
+    if (!name || price <= 0 || commissionRate < 0 || commissionRate > 100) return showToast('Confira os dados do serviço.');
     await write('services', { id: crypto.randomUUID(), name, price, commissionRate, active: true });
     await refreshConfig(); await openCadastros(); showToast('Serviço cadastrado.');
   });
@@ -242,7 +294,7 @@ function bindEvents() {
   $$('[data-action="clear-data"]').forEach((button) => button.addEventListener('click', clearData));
   $('#restore-file').addEventListener('change', (event) => { if (event.target.files[0]) restoreBackup(event.target.files[0]); event.target.value = ''; });
   $('#service-form').addEventListener('submit', saveService);
-  $('#service-select').addEventListener('change', () => { const option = $('#service-select').selectedOptions[0]; $('#service-amount').value = Number(option?.dataset.price || 0).toFixed(2); });
+  $('#service-select').addEventListener('change', () => { const option = $('#service-select').selectedOptions[0]; $('#service-amount').value = parseCurrencyInput(option?.dataset.price).toFixed(2); });
   $('#quick-settings').addEventListener('click', () => showView('more'));
 }
 
