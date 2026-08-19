@@ -10,74 +10,22 @@
   <title>Gestão de Bolso</title>
 </head>
 <body>
-  <header class="topbar">
-    <div>
-      <p class="eyebrow">GESTÃO DE BOLSO</p>
-      <h1 id="business-name">Meu negócio</h1>
-    </div>
-    <button class="icon-button" id="quick-settings" aria-label="Abrir configurações">⚙</button>
-  </header>
-
+  <header class="topbar"><div><p class="eyebrow">GESTÃO DE BOLSO</p><h1 id="business-name">Meu negócio</h1></div><button class="icon-button" id="quick-settings" aria-label="Abrir configurações">⚙</button></header>
   <main class="app-shell">
     <section class="view active" data-view="home">
-      <div class="hero-card">
-        <div>
-          <span class="label">RESULTADO ESTIMADO HOJE</span>
-          <strong id="today-result">R$ 0,00</strong>
-          <small id="today-date"></small>
-        </div>
-        <div class="hero-mark">✂</div>
-      </div>
-      <div class="metric-grid">
-        <article class="metric-card"><span>Entradas</span><strong id="today-income">R$ 0,00</strong></article>
-        <article class="metric-card"><span>Despesas</span><strong id="today-expenses">R$ 0,00</strong></article>
-        <article class="metric-card"><span>Comissões</span><strong id="today-commissions">R$ 0,00</strong></article>
-        <article class="metric-card"><span>Atendimentos</span><strong id="today-services">0</strong></article>
-      </div>
-      <button class="primary-action full" data-action="open-launch">+ Novo atendimento</button>
-      <div class="section-heading"><h2>Resumo do mês</h2><span id="month-label"></span></div>
-      <div class="summary-row"><span>Faturamento</span><strong id="month-income">R$ 0,00</strong></div>
-      <div class="summary-row"><span>Despesas</span><strong id="month-expenses">R$ 0,00</strong></div>
-      <div class="summary-row"><span>Saldo estimado</span><strong id="month-result">R$ 0,00</strong></div>
+      <div class="section-heading agenda-heading"><div><p class="eyebrow">AGENDA</p><h2 id="agenda-date-title">Hoje</h2></div><button class="small-button" data-action="open-launch">+ Horário</button></div>
+      <div class="agenda-summary"><strong id="agenda-count">0 atendimentos</strong><span id="agenda-income-label">R$ 0,00 previstos</span></div>
+      <div id="agenda-list" class="agenda-list"><div class="empty-state agenda-empty"><span class="empty-icon">✦</span><strong>Agenda livre</strong><p>Adicione o primeiro horário do dia.</p><button class="primary-action" data-action="open-launch">+ Novo horário</button></div></div>
+      <div class="section-heading"><h2>Resumo de hoje</h2><span id="today-date"></span></div>
+      <div class="metric-grid"><article class="metric-card"><span>Recebido</span><strong id="today-income">R$ 0,00</strong></article><article class="metric-card"><span>Despesas</span><strong id="today-expenses">R$ 0,00</strong></article><article class="metric-card"><span>Comissões</span><strong id="today-commissions">R$ 0,00</strong></article><article class="metric-card"><span>Concluídos</span><strong id="today-services">0</strong></article></div>
+      <div class="hero-card compact-hero"><div><span class="label">RESULTADO ESTIMADO HOJE</span><strong id="today-result">R$ 0,00</strong></div><div class="hero-mark">✂</div></div>
+      <div class="section-heading"><h2>Resumo do mês</h2><span id="month-label"></span></div><div class="summary-row"><span>Faturamento</span><strong id="month-income">R$ 0,00</strong></div><div class="summary-row"><span>Despesas</span><strong id="month-expenses">R$ 0,00</strong></div><div class="summary-row"><span>Saldo estimado</span><strong id="month-result">R$ 0,00</strong></div>
     </section>
-
-    <section class="view" data-view="launch">
-      <div class="section-heading"><div><p class="eyebrow">REGISTRO RÁPIDO</p><h2>Novo atendimento</h2></div></div>
-      <form id="service-form" class="form-card">
-        <label>Serviço<select id="service-select" required></select></label>
-        <label>Profissional<select id="professional-select" required></select></label>
-        <label>Valor cobrado<input id="service-amount" type="number" min="0" step="0.01" inputmode="decimal" required /></label>
-        <label>Forma de pagamento<select id="payment-select"><option value="pix">Pix</option><option value="card">Cartão</option><option value="cash">Dinheiro</option><option value="other">Outro</option></select></label>
-        <label>Observação <textarea id="service-notes" rows="2" placeholder="Opcional"></textarea></label>
-        <button class="primary-action full" type="submit">Salvar atendimento</button>
-      </form>
-      <button class="secondary-action full" data-action="open-expense">+ Registrar despesa</button>
-    </section>
-
-    <section class="view" data-view="cash">
-      <div class="section-heading"><div><p class="eyebrow">MOVIMENTAÇÕES</p><h2>Caixa</h2></div><button class="small-button" data-action="open-expense">+ Despesa</button></div>
-      <div id="transaction-list" class="list-card"><p class="empty-state">Nenhuma movimentação registrada.</p></div>
-    </section>
-
-    <section class="view" data-view="more">
-      <div class="section-heading"><div><p class="eyebrow">CONFIGURAÇÕES</p><h2>Mais</h2></div></div>
-      <div class="menu-list">
-        <button class="menu-item" data-action="open-cadastros"><span>⚙</span><div><strong>Cadastros</strong><small>Serviços, profissionais e comissões</small></div><b>›</b></button>
-        <button class="menu-item" data-action="export-backup"><span>↓</span><div><strong>Fazer backup</strong><small>Baixar uma cópia dos seus dados</small></div><b>›</b></button>
-        <label class="menu-item file-item"><span>↑</span><div><strong>Restaurar backup</strong><small>Importar arquivo JSON</small></div><b>›</b><input id="restore-file" type="file" accept="application/json,.json" /></label>
-        <button class="menu-item danger" data-action="clear-data"><span>!</span><div><strong>Limpar dados</strong><small>Apagar os dados deste aparelho</small></div><b>›</b></button>
-      </div>
-      <div class="info-box"><strong>Dados locais</strong><p>Os dados ficam salvos neste aparelho. Faça backups regularmente para evitar perda se os dados do navegador forem apagados.</p><small id="last-backup">Nenhum backup realizado</small></div>
-    </section>
+    <section class="view" data-view="launch"><div class="section-heading"><div><p class="eyebrow">AGENDA</p><h2>Novo horário</h2></div></div><form id="appointment-form" class="form-card"><label>Cliente<input id="appointment-client" required placeholder="Nome do cliente" /></label><div class="form-grid-two"><label>Data<input id="appointment-date" type="date" required /></label><label>Horário<input id="appointment-time" type="time" required /></label></div><label>Serviço<select id="appointment-service" required></select></label><label>Profissional<select id="appointment-professional" required></select></label><div class="form-grid-two"><label>Duração<select id="appointment-duration"><option value="30">30 min</option><option value="45">45 min</option><option value="60" selected>1 hora</option><option value="90">1h30</option><option value="120">2 horas</option></select></label><label>Valor<input id="appointment-amount" type="number" min="0" step="0.01" inputmode="decimal" required /></label></div><label>Observação<textarea id="appointment-notes" rows="2" placeholder="Opcional: preferência, técnica ou detalhe do serviço"></textarea></label><button class="primary-action full" type="submit">Salvar na agenda</button></form></section>
+    <section class="view" data-view="cash"><div class="section-heading"><div><p class="eyebrow">MOVIMENTAÇÕES</p><h2>Caixa</h2></div><button class="small-button" data-action="open-expense">+ Despesa</button></div><div id="transaction-list" class="list-card"><p class="empty-state">Nenhuma movimentação registrada.</p></div></section>
+    <section class="view" data-view="more"><div class="section-heading"><div><p class="eyebrow">CONFIGURAÇÕES</p><h2>Mais</h2></div></div><div class="menu-list"><button class="menu-item" data-action="open-cadastros"><span>⚙</span><div><strong>Cadastros</strong><small>Serviços, profissionais e comissões</small></div><b>›</b></button><button class="menu-item" data-action="export-backup"><span>↓</span><div><strong>Fazer backup</strong><small>Baixar uma cópia dos seus dados</small></div><b>›</b></button><label class="menu-item file-item"><span>↑</span><div><strong>Restaurar backup</strong><small>Importar arquivo JSON</small></div><b>›</b><input id="restore-file" type="file" accept="application/json,.json" /></label><button class="menu-item danger" data-action="clear-data"><span>!</span><div><strong>Limpar dados</strong><small>Apagar os dados deste aparelho</small></div><b>›</b></button></div><div class="info-box"><strong>Dados locais</strong><p>Os dados ficam salvos neste aparelho. Faça backups regularmente para evitar perda se os dados do navegador forem apagados.</p><small id="last-backup">Nenhum backup realizado</small></div></section>
   </main>
-
-  <nav class="bottom-nav" aria-label="Navegação principal">
-    <button class="nav-item active" data-nav="home"><span>⌂</span><small>Início</small></button>
-    <button class="nav-item launch-nav" data-nav="launch"><span>＋</span><small>Lançar</small></button>
-    <button class="nav-item" data-nav="cash"><span>▣</span><small>Caixa</small></button>
-    <button class="nav-item" data-nav="more"><span>•••</span><small>Mais</small></button>
-  </nav>
-
+  <nav class="bottom-nav" aria-label="Navegação principal"><button class="nav-item active" data-nav="home"><span>⌂</span><small>Início</small></button><button class="nav-item launch-nav" data-nav="launch"><span>＋</span><small>Lançar</small></button><button class="nav-item" data-nav="cash"><span>▣</span><small>Caixa</small></button><button class="nav-item" data-nav="more"><span>•••</span><small>Mais</small></button></nav>
   <div id="toast" class="toast" role="status"></div>
   <script src="app.js" type="module"></script>
 </body>

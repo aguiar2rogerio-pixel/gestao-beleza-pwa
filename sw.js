@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gestao-beleza-v1';
+const CACHE_NAME = 'gestao-beleza-v2';
 const APP_SHELL = ['./', './index.html', './styles.css', './app.js', './cadastros.js', './caixa.js', './comissoes.js', './manifest.json'];
 
 self.addEventListener('install', (event) => {
