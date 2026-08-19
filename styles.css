@@ -9,41 +9,17 @@
 .cadastro-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px solid var(--line)}.cadastro-row:last-child{border-bottom:0;padding-bottom:0}.cadastro-row:first-child{padding-top:0}.cadastro-row small{color:var(--muted);text-align:right}
 @media(min-width:640px){.cadastro-columns{grid-template-columns:1fr 1fr}}
 
-/* Agenda central e pílulas de atendimento */
-.agenda-heading { margin-top: 8px; align-items: center; }
-.agenda-summary { display: flex; justify-content: space-between; align-items: center; background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; }
-.agenda-summary strong { font-size: 14px; }
-.agenda-summary span { color: var(--muted); font-size: 12px; }
-.agenda-list { display: grid; gap: 10px; }
-.appointment-pill { width: 100%; display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: 10px; text-align: left; background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--accent); color: var(--text); border-radius: 16px; padding: 13px 12px; min-height: 76px; cursor: pointer; transition: transform .15s, border-color .15s; }
-.appointment-pill:active { transform: scale(.98); }
-.appointment-pill.status-completed { border-left-color: #72d6a1; opacity: .76; }
-.appointment-pill.status-cancelled, .appointment-pill.status-no_show { border-left-color: var(--danger); opacity: .62; }
-.appointment-pill.status-in_progress { border-left-color: #74a7ff; }
-.pill-time { font-size: 18px; font-weight: 900; letter-spacing: -.04em; }
-.pill-main { min-width: 0; }
-.pill-main strong, .pill-main small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pill-main small { color: var(--muted); font-size: 12px; margin-top: 4px; }
-.pill-status { color: var(--accent); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; text-align: right; }
-.status-completed .pill-status { color: #72d6a1; }
-.status-cancelled .pill-status, .status-no_show .pill-status { color: var(--danger); }
-.agenda-empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 16px; }
-.agenda-empty p { margin: 8px 0 16px; }
-.empty-icon { color: var(--accent); font-size: 28px; display: block; margin-bottom: 5px; }
-.compact-hero { margin-top: 22px; padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; }
-.compact-hero strong { font-size: 28px; }
-.form-grid-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.appointment-modal-card { max-width: 560px; }
-.appointment-detail { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0; }
-.appointment-detail > div { background: var(--surface-2); border-radius: 12px; padding: 12px; }
-.appointment-detail span { display: block; color: var(--muted); font-size: 11px; margin-bottom: 5px; }
-.appointment-detail strong { font-size: 14px; }
-.detail-note { color: var(--muted); font-size: 13px; padding: 10px 0; border-top: 1px solid var(--line); }
-.modal-actions { display: grid; gap: 8px; }
-@media (max-width: 380px) { .appointment-pill { grid-template-columns: 46px 1fr; } .pill-status { grid-column: 2; text-align: left; margin-top: -5px; } }
-@media (min-width: 600px) { .agenda-list { max-width: 720px; } }
+/* Agenda em pílulas de horários-base e encaixes */
+.agenda-heading{margin-top:8px;align-items:center}.agenda-date-actions{display:flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.agenda-date-actions .small-button{min-width:36px;padding:0 8px}.agenda-date-actions .small-button:nth-child(2){font-size:12px}.encaixe-button{color:var(--accent);border-color:rgba(240,180,76,.45)!important}
+.agenda-summary{display:flex;justify-content:space-between;align-items:center;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:10px 13px;margin-bottom:12px}.agenda-summary strong{font-size:13px}.agenda-summary span{color:var(--muted);font-size:11px}
+.agenda-list{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;border:0;background:transparent;max-width:760px}.time-pill{width:100%;min-width:0;min-height:62px;padding:9px 3px 8px;border:1px solid rgba(137,148,166,.28);border-radius:15px;background:var(--surface-2);color:var(--text);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;transition:transform .15s,border-color .15s,background .15s}.time-pill:active{transform:scale(.96)}.time-pill strong{font-size:14px;letter-spacing:-.04em;font-variant-numeric:tabular-nums}.time-pill small{font-size:9px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.02em;white-space:nowrap}.time-pill-free{border-style:dashed;background:rgba(255,255,255,.018)}.time-pill-free small{color:#8f9aaa}.time-pill.status-scheduled{border-color:rgba(240,180,76,.78);background:rgba(240,180,76,.12)}.time-pill.status-scheduled small{color:var(--accent)}.time-pill.status-completed{border-color:rgba(114,214,161,.7);background:rgba(114,214,161,.12)}.time-pill.status-completed small{color:#72d6a1}.time-pill.status-cancelled{border-color:rgba(255,118,118,.6);background:rgba(255,118,118,.09);opacity:.7}.time-pill.status-cancelled small{color:var(--danger)}.time-pill.is-encaixe{box-shadow:inset 0 -3px 0 #a98cff}.time-pill.is-encaixe small{color:#b8a5ff}.compact-hero{margin-top:22px;padding:18px 20px;display:flex;justify-content:space-between;align-items:center}.compact-hero strong{font-size:28px}.selected-slot{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--surface-2);border:1px solid var(--line);border-radius:13px;padding:13px 14px;margin-bottom:16px}.selected-slot span{font-size:11px;color:var(--muted)}.selected-slot strong{text-align:right;font-size:13px}.optional-label{font-size:10px;color:var(--muted);font-weight:400}.appointment-modal-card{max-width:560px}.appointment-detail{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}.appointment-detail>div{background:var(--surface-2);border-radius:12px;padding:12px}.appointment-detail span{display:block;color:var(--muted);font-size:11px;margin-bottom:5px}.appointment-detail strong{font-size:14px}.detail-note{color:var(--muted);font-size:13px;padding:10px 0;border-top:1px solid var(--line)}.modal-actions{display:grid;gap:8px}.danger-action{border:1px solid rgba(255,118,118,.4);border-radius:15px;min-height:52px;padding:0 18px;font-weight:800;font-size:15px;cursor:pointer;background:transparent;color:var(--danger)}
+@media(max-width:420px){.agenda-list{gap:5px}.time-pill{min-height:58px;border-radius:13px}.time-pill strong{font-size:12px}.time-pill small{font-size:8px}.agenda-date-actions{gap:3px}.agenda-date-actions .small-button{min-width:32px;padding:0 6px}}
+@media(min-width:700px){.agenda-list{grid-template-columns:repeat(6,minmax(0,1fr))}}
 
-/* Nova agenda por intervalos de 30 minutos */
-.agenda-date-actions{display:flex;gap:5px;align-items:center}.agenda-date-actions .small-button{min-width:38px;padding:0 9px}.agenda-date-actions .small-button:nth-child(2){font-size:12px}.agenda-list{display:grid;gap:0;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:rgba(23,26,32,.72)}.agenda-row{display:grid;grid-template-columns:58px 1fr;min-height:58px;border-bottom:1px solid var(--line)}.agenda-row:last-child{border-bottom:0}.agenda-row>time{padding:18px 8px 0 10px;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}.agenda-slot{position:relative;min-width:0;padding:4px;border-left:1px solid var(--line)}.agenda-row-occupied .agenda-slot{background:rgba(255,255,255,.018)}.empty-slot{width:100%;height:48px;border:1px dashed #3c444f;border-radius:11px;background:transparent;color:var(--muted);display:flex;align-items:center;gap:8px;padding:0 12px;text-align:left;cursor:pointer}.empty-slot span{font-size:20px;color:var(--accent)}.empty-slot small{font-size:11px}.appointment-pill{position:relative;z-index:2;min-height:calc(var(--pill-span) * 58px - 8px);height:calc(var(--pill-span) * 58px - 8px);align-content:start}.selected-slot{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--surface-2);border:1px solid var(--line);border-radius:13px;padding:13px 14px;margin-bottom:16px}.selected-slot span{font-size:11px;color:var(--muted)}.selected-slot strong{text-align:right;font-size:13px}.optional-label{font-size:10px;color:var(--muted);font-weight:400}.danger-action{border:1px solid rgba(255,118,118,.4);border-radius:15px;min-height:52px;padding:0 18px;font-weight:800;font-size:15px;cursor:pointer;background:transparent;color:var(--danger)}
-@media(max-width:380px){.agenda-row{grid-template-columns:52px 1fr}.agenda-row>time{padding-left:7px;font-size:11px}.appointment-pill{grid-template-columns:46px 1fr}.pill-status{grid-column:2;text-align:left;margin-top:-5px}}
-@media(min-width:600px){.agenda-list{max-width:720px}}
+.encaixe-modal-card{max-width:420px}.modal-help{color:var(--muted);font-size:13px;line-height:1.5;margin:0 0 16px}.encaixe-modal-card input{font-size:20px;letter-spacing:.08em;text-align:center}
+.encaixe-modal-card .modal-actions{margin-top:16px}
+@media(max-width:420px){.agenda-heading h2{font-size:20px}.agenda-summary{padding:9px 10px}.agenda-summary span{font-size:10px}}
+
+/* Ações dos cadastros */
+.cadastro-row>div:first-child{min-width:0;display:flex;flex-direction:column;gap:4px}.cadastro-row strong{font-size:14px}.cadastro-actions{display:flex;gap:6px;flex-shrink:0}.mini-button{border:1px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--text);padding:8px 9px;font-size:11px;font-weight:800;cursor:pointer}.mini-button:active{transform:scale(.96)}.danger-mini{color:var(--danger);border-color:rgba(255,118,118,.35)}.list-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.list-heading h3{margin:0}.list-heading>span{min-width:24px;padding:4px 7px;border-radius:999px;background:rgba(255,255,255,.06);color:var(--muted);font-size:11px;text-align:center}.cadastro-edit-card{max-width:430px}
+@media(max-width:420px){.cadastro-row{gap:8px}.cadastro-actions{gap:4px}.mini-button{padding:8px 7px;font-size:10px}}
