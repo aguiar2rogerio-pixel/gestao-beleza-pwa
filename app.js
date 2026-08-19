@@ -1,6 +1,6 @@
 const DB_NAME = 'gestaoBelezaDBAgenda';
 const LEGACY_DB_NAME = 'gestaoBelezaDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORES = ['settings', 'professionals', 'services', 'transactions', 'appointments', 'metadata'];
 let db;
 
