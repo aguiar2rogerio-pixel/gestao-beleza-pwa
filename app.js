@@ -1,5 +1,6 @@
-const DB_NAME = 'gestaoBelezaDB';
-const DB_VERSION = 2;
+const DB_NAME = 'gestaoBelezaDBAgenda';
+const LEGACY_DB_NAME = 'gestaoBelezaDB';
+const DB_VERSION = 1;
 const STORES = ['settings', 'professionals', 'services', 'transactions', 'appointments', 'metadata'];
 let db;
 
@@ -34,6 +35,31 @@ function write(storeName, value) {
     tx.onerror = () => reject(tx.error);
   });
 }
+async function migrateLegacyData() {
+  if (!indexedDB.databases) return;
+  const databases = await indexedDB.databases();
+  if (!databases.some((item) => item.name === LEGACY_DB_NAME)) return;
+  const legacy = await new Promise((resolve, reject) => {
+    const request = indexedDB.open(LEGACY_DB_NAME);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  try {
+    const available = [...legacy.objectStoreNames];
+    for (const store of ['settings', 'professionals', 'services', 'transactions']) {
+      if (!available.includes(store)) continue;
+      const records = await new Promise((resolve, reject) => {
+        const request = legacy.transaction(store).objectStore(store).getAll();
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => reject(request.error);
+      });
+      for (const record of records) await write(store, record);
+    }
+  } finally {
+    legacy.close();
+  }
+}
+
 function readAll(storeName) {
   return new Promise((resolve, reject) => {
     const request = db.transaction(storeName).objectStore(storeName).getAll();
@@ -266,7 +292,7 @@ function bindEvents() {
   $('#quick-settings').addEventListener('click', () => showView('more'));
 }
 async function init() {
-  db = await openDB(); await seedData(); await requestPersistentStorage(); bindEvents(); await refreshConfig(); setAppointmentDefaults(); await refreshDashboard();
+  db = await openDB(); await migrateLegacyData(); await seedData(); await requestPersistentStorage(); bindEvents(); await refreshConfig(); setAppointmentDefaults(); await refreshDashboard();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(console.error);
 }
 init().catch((error) => { console.error(error); showToast('Erro ao iniciar o aplicativo.'); });
