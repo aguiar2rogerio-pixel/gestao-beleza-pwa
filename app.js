@@ -1,6 +1,6 @@
 const DB_NAME = 'gestaoBelezaDBAgendaV4';
 const LEGACY_DB_NAME = 'gestaoBelezaDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORES = ['settings', 'professionals', 'services', 'transactions', 'appointments', 'clients', 'metadata'];
 let db;
 let agendaViewDate = null;
@@ -99,7 +99,6 @@ async function refreshConfig() {
   const activeProfessionals = professionals.filter((item) => item.active !== false);
   $('#appointment-service').innerHTML = activeServices.map((item) => `<option value="${item.id}" data-price="${item.price}" data-duration="${item.duration || 60}">${safe(item.name)}</option>`).join('');
   $('#appointment-professional').innerHTML = activeProfessionals.map((item) => `<option value="${item.id}">${safe(item.name)}</option>`).join('');
-  $('#client-options').innerHTML = clients.sort((a,b) => a.name.localeCompare(b.name, 'pt-BR', {sensitivity:'base'})).map((item) => `<option value="${safe(item.name)}">${safe(item.phone || '')}</option>`).join('');
   const firstService = activeServices[0];
   if (firstService) $('#appointment-amount').value = Number(firstService.price).toFixed(2);
 }
@@ -154,7 +153,7 @@ async function renderAgenda(appointments) {
   const baseTimes = [];
   for (let minute = 8 * 60; minute <= 20 * 60; minute += 60) baseTimes.push(timeFromMinutes(minute));
   const times = [...new Set([...baseTimes, ...todays.map((item) => item.time)])].sort((a, b) => minutesFromTime(a) - minutesFromTime(b));
-  const statusLabel = { scheduled: 'Agendado', confirmed: 'Agendado', completed: 'Concluído', cancelled: 'Cancelado', no_show: 'Faltou' };
+  const statusLabel = { scheduled: 'Agendado', confirmed: 'Agendado', completed: '✓', cancelled: '×', no_show: '×' };
   const statusClass = (item) => item.status === 'completed' ? 'status-completed' : ['cancelled', 'no_show'].includes(item.status) ? 'status-cancelled' : 'status-scheduled';
   const isBase = (time) => baseTimes.includes(time);
 
@@ -163,7 +162,7 @@ async function renderAgenda(appointments) {
     const label = atTime.length ? (atTime.length === 1 ? statusLabel[atTime[0].status] || 'Agendado' : `${atTime.length} agendados`) : 'Livre';
     const extraClass = isBase(time) ? '' : 'is-encaixe';
     if (!atTime.length) return `<button class="time-pill time-pill-free ${extraClass}" data-slot="${agendaViewDate}|${time}"><strong>${time}</strong><small>${label}</small></button>`;
-    return atTime.map((item) => `<button class="time-pill ${statusClass(item)} ${extraClass}" data-appointment-id="${item.id}"><strong>${safe(item.time)}</strong><small>${statusLabel[item.status] || 'Agendado'}${!isBase(item.time) ? ' · Encaixe' : ''}</small></button>`).join('');
+    return atTime.map((item) => `<button class="time-pill ${statusClass(item)} ${extraClass}" data-appointment-id="${item.id}"><strong>${safe(item.time)}</strong><small>${statusLabel[item.status] || 'Agendado'}</small></button>`).join('');
   }).join('');
 
   list.querySelectorAll('[data-appointment-id]').forEach((button) => button.addEventListener('click', () => openAppointment(button.dataset.appointmentId)));
@@ -204,40 +203,42 @@ async function saveAppointment(event) {
   const date = $('#appointment-date').value;
   const time = $('#appointment-time').value;
   const clientName = $('#appointment-client').value.trim();
-  const clientPhone = $('#appointment-client-phone')?.value.trim() || '';
   const professionalId = $('#appointment-professional').value;
   if (!date || !time || !clientName || !professionalId) return showToast('Preencha cliente, profissional e horário.');
   const appointments = await readAll('appointments');
   const existing = editingAppointmentId ? appointments.find((item) => item.id === editingAppointmentId) : null;
-  const appointment = { ...(existing || {}), id: existing?.id || crypto.randomUUID(), dateKey: date, time, clientName, clientPhone, serviceId: $('#appointment-service').value, professionalId, duration: existing?.duration || 0, amount: Number($('#appointment-amount').value || 0), notes: $('#appointment-notes').value.trim(), status: existing?.status || 'scheduled', createdAt: existing?.createdAt || todayISO(), updatedAt: todayISO() };
+  const appointment = { ...(existing || {}), id: existing?.id || crypto.randomUUID(), dateKey: date, time, clientName, clientId: $('#appointment-client-id').value || existing?.clientId || '', serviceId: $('#appointment-service').value, professionalId, duration: 0, amount: Number($('#appointment-amount').value || 0), notes: $('#appointment-notes').value.trim(), status: existing?.status || 'scheduled', createdAt: existing?.createdAt || todayISO(), updatedAt: todayISO() };
   await write('appointments', appointment);
   const clients = await readAll('clients');
-  const client = clients.find((item) => item.name.trim().toLocaleLowerCase() === clientName.toLocaleLowerCase()) || { id: crypto.randomUUID(), name: clientName, createdAt: todayISO() };
-  client.name = clientName; client.phone = clientPhone || client.phone || ''; client.updatedAt = todayISO();
+  const client = clients.find((item) => item.id === appointment.clientId) || clients.find((item) => item.name.trim().toLocaleLowerCase() === clientName.toLocaleLowerCase()) || { id: crypto.randomUUID(), name: clientName, phone: '', createdAt: todayISO() };
+  client.name = clientName; client.updatedAt = todayISO(); appointment.clientId = client.id;
   await write('clients', client);
-  event.target.reset(); editingAppointmentId = null; setAppointmentDefaults(agendaViewDate, '08:00');
+  event.target.reset(); $('#appointment-client-id').value = ''; editingAppointmentId = null; setAppointmentDefaults(agendaViewDate, '08:00');
   await refreshConfig(); await refreshDashboard(); showToast(existing ? 'Horário atualizado.' : 'Horário adicionado.'); showView('home');
 }
 async function openAppointment(id) {
   const appointment = (await readAll('appointments')).find((item) => item.id === id);
   if (!appointment) return;
-  const [services, professionals] = await Promise.all([readAll('services'), readAll('professionals')]);
+  const [services, professionals, clients] = await Promise.all([readAll('services'), readAll('professionals'), readAll('clients')]);
+  const client = clients.find((item) => item.id === appointment.clientId) || clients.find((item) => item.name?.trim().toLocaleLowerCase() === appointment.clientName?.trim().toLocaleLowerCase());
   const service = services.find((item) => item.id === appointment.serviceId);
   const professional = professionals.find((item) => item.id === appointment.professionalId);
   document.getElementById('appointment-modal')?.remove();
   const modal = document.createElement('div'); modal.id = 'appointment-modal'; modal.className = 'modal-overlay';
   const terminal = ['completed', 'cancelled', 'no_show'].includes(appointment.status);
-  modal.innerHTML = `<div class="modal-card appointment-modal-card"><div class="modal-header"><div><p class="eyebrow">HORÁRIO</p><h2>${safe(appointment.time)} · ${safe(appointment.clientName)}</h2></div><button class="icon-button" data-close-modal aria-label="Fechar">×</button></div><div class="appointment-detail"><div><span>Serviço</span><strong>${safe(service?.name || 'Serviço')}</strong></div><div><span>Profissional</span><strong>${safe(professional?.name || 'Profissional')}</strong></div><div><span>Valor</span><strong>${money(appointment.amount)}</strong></div><div><span>Status</span><strong>${({scheduled:'Agendado',completed:'Concluído',cancelled:'Cancelado',no_show:'Faltou'}[appointment.status] || 'Agendado')}</strong></div></div><p class="detail-note">${safe(appointment.notes || 'Sem observações.')}</p><div class="modal-actions">${terminal ? '' : '<button class="primary-action full" data-edit>Editar horário</button><button class="secondary-action full" data-complete>Concluir atendimento</button><button class="secondary-action full" data-status="no_show">Marcar falta</button><button class="secondary-action full" data-status="cancelled">Cancelar horário</button>'}<button class="danger-action full" data-delete>Excluir horário</button></div></div>`;
+  modal.innerHTML = `<div class="modal-card appointment-modal-card"><div class="modal-header"><div><p class="eyebrow">HORÁRIO</p><h2>${safe(appointment.time)} · ${safe(appointment.clientName)}</h2></div><button class="icon-button" data-close-modal aria-label="Fechar">×</button></div><div class="appointment-detail"><button class="client-detail-button" data-client-info type="button"><span>Cliente</span><strong>${safe(appointment.clientName)}${client?.phone ? ` · ${safe(client.phone)}` : ''}</strong></button><div><span>Serviço</span><strong>${safe(service?.name || 'Serviço')}</strong></div><div><span>Profissional</span><strong>${safe(professional?.name || 'Profissional')}</strong></div><div><span>Valor</span><strong>${money(appointment.amount)}</strong></div><div><span>Status</span><strong>${({scheduled:'Agendado',completed:'Concluído',cancelled:'Cancelado',no_show:'Faltou'}[appointment.status] || 'Agendado')}</strong></div></div><p class="detail-note">${safe(appointment.notes || 'Sem observações.')}</p><div class="modal-actions">${terminal ? (['cancelled', 'no_show'].includes(appointment.status) ? '<button class="primary-action full" data-reopen>Reabrir horário</button>' : '') : '<button class="primary-action full" data-edit>Editar horário</button><button class="secondary-action full" data-complete>Concluir atendimento</button><button class="secondary-action full" data-status="no_show">Marcar falta</button><button class="secondary-action full" data-status="cancelled">Cancelar horário</button>'}<button class="danger-action full" data-delete>Excluir horário</button></div></div>`;
   document.body.appendChild(modal);
   modal.querySelectorAll('[data-close-modal]').forEach((button) => button.addEventListener('click', () => modal.remove()));
   modal.addEventListener('click', (event) => { if (event.target === modal) modal.remove(); });
+  modal.querySelector('[data-client-info]')?.addEventListener('click', () => showClientInfo(client));
   modal.querySelector('[data-edit]')?.addEventListener('click', () => { modal.remove(); editAppointment(appointment); });
+  modal.querySelector('[data-reopen]')?.addEventListener('click', async () => { appointment.status = 'scheduled'; appointment.updatedAt = todayISO(); await write('appointments', appointment); modal.remove(); await refreshDashboard(); showToast('Horário reaberto.'); });
   modal.querySelector('[data-complete]')?.addEventListener('click', async () => { await completeAppointment(appointment, service, modal); });
   modal.querySelectorAll('[data-status]').forEach((button) => button.addEventListener('click', async () => { appointment.status = button.dataset.status; appointment.updatedAt = todayISO(); await write('appointments', appointment); modal.remove(); await refreshDashboard(); showToast(button.dataset.status === 'no_show' ? 'Falta registrada.' : 'Horário cancelado.'); }));
   modal.querySelector('[data-delete]')?.addEventListener('click', async () => { if (!window.confirm('Excluir este horário?')) return; await remove('appointments', appointment.id); modal.remove(); await refreshDashboard(); showToast('Horário excluído.'); });
 }
 function editAppointment(appointment) {
-  editingAppointmentId = appointment.id; setAppointmentDefaults(appointment.dateKey, appointment.time); $('#appointment-client').value = appointment.clientName; $('#appointment-client-phone').value = appointment.clientPhone || ''; $('#appointment-service').value = appointment.serviceId; $('#appointment-professional').value = appointment.professionalId; $('#appointment-amount').value = Number(appointment.amount || 0).toFixed(2); $('#appointment-notes').value = appointment.notes || ''; $('#appointment-form button[type="submit"]').textContent = 'Atualizar horário'; showView('launch');
+  editingAppointmentId = appointment.id; setAppointmentDefaults(appointment.dateKey, appointment.time); $('#appointment-client').value = appointment.clientName; $('#appointment-client-id').value = appointment.clientId || '';  $('#appointment-service').value = appointment.serviceId; $('#appointment-professional').value = appointment.professionalId; $('#appointment-amount').value = Number(appointment.amount || 0).toFixed(2); $('#appointment-notes').value = appointment.notes || ''; $('#appointment-form button[type="submit"]').textContent = 'Atualizar horário'; showView('launch');
 }
 async function completeAppointment(appointment, service, modal) {
   if (appointment.status === 'completed') return;
@@ -253,6 +254,54 @@ async function completeAppointment(appointment, service, modal) {
   modal.remove(); await refreshDashboard(); showToast('Atendimento concluído e lançado no caixa.');
 }
 
+
+function showClientInfo(client) {
+  if (!client) return showToast('Este cliente ainda não tem cadastro completo.');
+  document.getElementById('client-info-modal')?.remove();
+  const modal = document.createElement('div'); modal.id = 'client-info-modal'; modal.className = 'modal-overlay';
+  modal.innerHTML = `<div class="modal-card client-info-card"><div class="modal-header"><div><p class="eyebrow">CLIENTE</p><h2>${safe(client.name)}</h2></div><button class="icon-button" data-close-client-info aria-label="Fechar">×</button></div><div class="client-contact"><span>Telefone de contato</span><strong>${safe(client.phone || 'Não informado')}</strong></div><div class="modal-actions"><button class="secondary-action full" data-close-client-info>Fechar</button></div></div>`;
+  document.body.appendChild(modal);
+  modal.querySelectorAll('[data-close-client-info]').forEach((button) => button.addEventListener('click', () => modal.remove()));
+  modal.addEventListener('click', (event) => { if (event.target === modal) modal.remove(); });
+}
+
+async function openClientPicker() {
+  const clients = (await readAll('clients')).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+  document.getElementById('client-picker-modal')?.remove();
+  const modal = document.createElement('div'); modal.id = 'client-picker-modal'; modal.className = 'modal-overlay';
+  modal.innerHTML = `<div class="modal-card client-picker-card"><div class="modal-header"><div><p class="eyebrow">CLIENTES</p><h2>Escolher cliente</h2></div><button class="icon-button" data-close-client-picker aria-label="Fechar">×</button></div><input class="client-search" id="client-search" placeholder="Pesquisar pelo nome" autocomplete="off"><div id="client-picker-list" class="client-picker-list"></div><button class="secondary-action full" data-new-client>Novo cliente</button></div>`;
+  document.body.appendChild(modal);
+  const list = modal.querySelector('#client-picker-list');
+  const render = (term = '') => {
+    const filtered = clients.filter((client) => client.name.toLocaleLowerCase().includes(term.toLocaleLowerCase()));
+    list.innerHTML = filtered.length ? filtered.map((client) => `<button type="button" class="client-picker-row" data-client-id="${client.id}"><strong>${safe(client.name)}</strong><small>${client.phone ? 'Telefone cadastrado' : 'Sem telefone informado'}</small></button>`).join('') : '<p class="empty-state">Nenhum cliente encontrado.</p>';
+    list.querySelectorAll('[data-client-id]').forEach((button) => button.addEventListener('click', () => { const client = clients.find((item) => item.id === button.dataset.clientId); $('#appointment-client').value = client.name; $('#appointment-client-id').value = client.id; modal.remove(); }));
+  };
+  render();
+  modal.querySelector('#client-search').addEventListener('input', (event) => render(event.target.value));
+  modal.querySelector('[data-new-client]').addEventListener('click', () => openNewClientFromPicker(modal));
+  modal.querySelectorAll('[data-close-client-picker]').forEach((button) => button.addEventListener('click', () => modal.remove()));
+  modal.addEventListener('click', (event) => { if (event.target === modal) modal.remove(); });
+  modal.querySelector('#client-search').focus();
+}
+
+function openNewClientFromPicker(parentModal) {
+  parentModal.querySelector('.client-picker-card').innerHTML = `<div class="modal-header"><div><p class="eyebrow">CLIENTES</p><h2>Novo cliente</h2></div><button class="icon-button" data-close-new-client aria-label="Fechar">×</button></div><form id="new-client-inline-form" class="form-card compact-form"><label>Nome<input id="new-client-name" required placeholder="Nome do cliente"></label><label>Telefone <span class="optional-label">opcional</span><input id="new-client-phone" type="tel" inputmode="tel" placeholder="(00) 00000-0000"></label><button class="primary-action full" type="submit">Salvar cliente</button></form>`;
+  parentModal.querySelector('[data-close-new-client]').addEventListener('click', () => parentModal.remove());
+  parentModal.querySelector('#new-client-inline-form').addEventListener('submit', async (event) => { event.preventDefault(); const name = $('#new-client-name').value.trim(); const phone = $('#new-client-phone').value.trim(); if (!name) return; const client = { id: crypto.randomUUID(), name, phone, createdAt: todayISO(), updatedAt: todayISO() }; await write('clients', client); $('#appointment-client').value = name; $('#appointment-client-id').value = client.id; parentModal.remove(); showToast('Cliente cadastrado.'); });
+  parentModal.querySelector('#new-client-name').focus();
+}
+
+async function openSettings() {
+  const settings = (await readAll('settings')).find((item) => item.id === 'business') || { id: 'business', name: 'Meu negócio' };
+  document.getElementById('settings-modal')?.remove();
+  const modal = document.createElement('div'); modal.id = 'settings-modal'; modal.className = 'modal-overlay';
+  modal.innerHTML = `<div class="modal-card settings-modal-card"><div class="modal-header"><div><p class="eyebrow">CONFIGURAÇÕES</p><h2>Meu estabelecimento</h2></div><button class="icon-button" data-close-settings aria-label="Fechar">×</button></div><form id="settings-form" class="form-card compact-form"><label>Nome do estabelecimento<input id="business-name-input" required maxlength="60" value="${safe(settings.name || 'Meu negócio')}"></label><button class="primary-action full" type="submit">Salvar nome</button></form></div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('[data-close-settings]').addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', (event) => { if (event.target === modal) modal.remove(); });
+  modal.querySelector('#settings-form').addEventListener('submit', async (event) => { event.preventDefault(); const name = $('#business-name-input').value.trim(); if (!name) return; await write('settings', { ...settings, id: 'business', name, updatedAt: todayISO() }); $('#business-name').textContent = name; modal.remove(); showToast('Nome do estabelecimento atualizado.'); });
+}
 
 function openEncaixe() {
   document.getElementById('encaixe-modal')?.remove();
@@ -274,6 +323,34 @@ function openEncaixe() {
   });
   input.focus();
 }
+
+async function openClientsRegistry() {
+  const clients = (await readAll('clients')).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+  document.getElementById('clients-registry-modal')?.remove();
+  const modal = document.createElement('div'); modal.id = 'clients-registry-modal'; modal.className = 'modal-overlay';
+  modal.innerHTML = `<div class="modal-card client-picker-card"><div class="modal-header"><div><p class="eyebrow">CADASTRO</p><h2>Clientes</h2></div><button class="icon-button" data-close-registry aria-label="Fechar">×</button></div><input class="client-search" id="registry-search" placeholder="Pesquisar pelo nome" autocomplete="off"><div id="registry-list" class="client-picker-list"></div><button class="secondary-action full" data-registry-new>Novo cliente</button></div>`;
+  document.body.appendChild(modal);
+  const list = modal.querySelector('#registry-list');
+  const render = (term = '') => {
+    const filtered = clients.filter((client) => client.name.toLocaleLowerCase().includes(term.toLocaleLowerCase()));
+    list.innerHTML = filtered.length ? filtered.map((client) => `<div class="client-picker-row"><strong>${safe(client.name)}</strong><small>${safe(client.phone || 'Telefone não informado')}</small><div class="cadastro-actions"><button type="button" class="mini-button" data-edit-client="${client.id}">Editar</button><button type="button" class="mini-button danger-mini" data-delete-client="${client.id}">Excluir</button></div></div>`).join('') : '<p class="empty-state">Nenhum cliente encontrado.</p>';
+    list.querySelectorAll('[data-edit-client]').forEach((button) => button.addEventListener('click', () => editClient(clients.find((item) => item.id === button.dataset.editClient), modal)));
+    list.querySelectorAll('[data-delete-client]').forEach((button) => button.addEventListener('click', async () => { const client = clients.find((item) => item.id === button.dataset.deleteClient); if (!client || !window.confirm(`Excluir ${client.name}?`)) return; const appointments = await readAll('appointments'); if (appointments.some((item) => item.clientId === client.id || item.clientName === client.name)) { client.active = false; await write('clients', client); } else await remove('clients', client.id); modal.remove(); await openClientsRegistry(); showToast('Cliente removido.'); }));
+  };
+  render();
+  modal.querySelector('#registry-search').addEventListener('input', (event) => render(event.target.value));
+  modal.querySelector('[data-registry-new]').addEventListener('click', () => openNewClientRegistry(modal));
+  modal.querySelector('[data-close-registry]').addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', (event) => { if (event.target === modal) modal.remove(); });
+  modal.querySelector('#registry-search').focus();
+}
+function openNewClientRegistry(parentModal, client = null) {
+  parentModal.querySelector('.client-picker-card').innerHTML = `<div class="modal-header"><div><p class="eyebrow">CLIENTE</p><h2>${client ? 'Editar cliente' : 'Novo cliente'}</h2></div><button class="icon-button" data-close-client-form aria-label="Fechar">×</button></div><form id="registry-client-form" class="form-card compact-form"><label>Nome<input id="registry-client-name" required value="${safe(client?.name || '')}"></label><label>Telefone <span class="optional-label">opcional</span><input id="registry-client-phone" type="tel" inputmode="tel" value="${safe(client?.phone || '')}" placeholder="(00) 00000-0000"></label><button class="primary-action full" type="submit">Salvar cliente</button></form>`;
+  parentModal.querySelector('[data-close-client-form]').addEventListener('click', () => parentModal.remove());
+  parentModal.querySelector('#registry-client-form').addEventListener('submit', async (event) => { event.preventDefault(); const name = $('#registry-client-name').value.trim(); const phone = $('#registry-client-phone').value.trim(); if (!name) return; const record = { ...(client || { id: crypto.randomUUID(), createdAt: todayISO() }), name, phone, updatedAt: todayISO(), active: true }; await write('clients', record); parentModal.remove(); await openClientsRegistry(); showToast(client ? 'Cliente atualizado.' : 'Cliente cadastrado.'); });
+  parentModal.querySelector('#registry-client-name').focus();
+}
+function editClient(client, parentModal) { if (client) openNewClientRegistry(parentModal, client); }
 
 async function saveExpense() {
   const description = window.prompt('Descrição da despesa:');
@@ -353,6 +430,9 @@ function bindEvents() {
   $$('[data-action="open-encaixe"]').forEach((button) => button.addEventListener('click', openEncaixe));
   $$('[data-action="open-expense"]').forEach((button) => button.addEventListener('click', saveExpense));
   $$('[data-action="open-cadastros"]').forEach((button) => button.addEventListener('click', openCadastros));
+  $$('[data-action="open-client-picker"]').forEach((button) => button.addEventListener('click', openClientPicker));
+  $$('[data-action="open-clients"]').forEach((button) => button.addEventListener('click', openClientsRegistry));
+  $$('[data-action="open-settings"]').forEach((button) => button.addEventListener('click', openSettings));
   $$('[data-action="export-backup"]').forEach((button) => button.addEventListener('click', exportBackup));
   $$('[data-action="clear-data"]').forEach((button) => button.addEventListener('click', clearData));
   $('#restore-file').addEventListener('change', (event) => { if (event.target.files[0]) restoreBackup(event.target.files[0]); event.target.value = ''; });
@@ -362,7 +442,6 @@ function bindEvents() {
   $('[data-action="today"]').addEventListener('click', async () => { agendaViewDate = dateKey(); await refreshDashboard(); });
   $('#appointment-time').addEventListener('change', () => { $('#selected-slot-label').textContent = `${displayDateKey($('#appointment-date').value)} · ${$('#appointment-time').value}`; });
   $('#appointment-service').addEventListener('change', () => { const option = $('#appointment-service').selectedOptions[0]; $('#appointment-amount').value = Number(option?.dataset.price || 0).toFixed(2); });
-  $('#quick-settings').addEventListener('click', () => showView('more'));
 }
 async function init() {
   agendaViewDate = dateKey();
